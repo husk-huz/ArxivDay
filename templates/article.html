@@ -141,6 +141,27 @@
             color: white;
             border-color: #0056b3; /* 激活或悬停时变更边框颜色 */
         }
+
+        .date-navigation {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .date-navigation button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        .date-navigation button:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -157,28 +178,32 @@
         <p>Last Updated: <span id="lastUpdated">N/A</span> (+00:00)</p>
         <div class="filter-container" id="filters">
             <!-- JavaScript将在这里动态添加其他选项 -->
-    </div>        
-    </div>
-        <div class="content">
-            <div class="inner-content">
-                {% for article in articles %}
-                <div class="article-container" data-category="{{ article.categories }}" data-updated="{{ article.updated }}">
-                        <div class="article-left">
-                            <h3 class="article-title">{{ article.title }}</h3>
-                            <p class="article-summary">{{ article.summary }}</p>
-                            <p><i>Updated: {{ article.updated.strftime('%Y-%m-%d %H:%M:%S') }}</i></p>
-                        </div>
-                        <div class="article-right">
-                            <h3 class="article-title">标题: {{ article.CN_title }}</h3>
-                            <p class="article-summary">摘要: {{ article.CN_summary }}</p>
-                            <p><i>更新时间: {{ article.updated.strftime('%Y-%m-%d %H:%M:%S') }}</i></p>
-                            <p><i>领域: {{ article.categories }}</i></p>
-                            <p><i>下载: <a href="{{ article.entry_id }}" target="_blank">{{ article.entry_id }}</a></i></p>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
         </div>        
+    </div>
+    <div class="date-navigation">
+        <button id="prevDay">Previous Day</button>
+        <button id="nextDay">Next Day</button>
+    </div>
+    <div class="content">
+        <div class="inner-content">
+            {% for article in articles %}
+            <div class="article-container" data-category="{{ article.categories }}" data-updated="{{ article.updated }}">
+                <div class="article-left">
+                    <h3 class="article-title">{{ article.title }}</h3>
+                    <p class="article-summary">{{ article.summary }}</p>
+                    <p><i>Updated: {{ article.updated.strftime('%Y-%m-%d %H:%M:%S') }}</i></p>
+                </div>
+                <div class="article-right">
+                    <h3 class="article-title">标题: {{ article.CN_title }}</h3>
+                    <p class="article-summary">摘要: {{ article.CN_summary }}</p>
+                    <p><i>更新时间: {{ article.updated.strftime('%Y-%m-%d %H:%M:%S') }}</i></p>
+                    <p><i>领域: {{ article.categories }}</i></p>
+                    <p><i>下载: <a href="{{ article.entry_id }}" target="_blank">{{ article.entry_id }}</a></i></p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>        
     <div class="site-info">
         By <a href="https://seanzou.com" target="_blank">Xinhai (Sean) Zou.
     </div>
@@ -193,6 +218,7 @@
         // 初始化时，将所有过滤选项加入到激活的过滤器集合
         categoriesFromBackend.forEach(category => {
             activeFilters.add(category);
+            activeFilters.delete(category);
         });
 
         // 为每个分类创建一个过滤选项，并默认激活
@@ -216,7 +242,6 @@
             updateArticleVisibility(); // 更新文章的可见性
             updateLastUpdatedTime(); // 更新最新更新时间
         }
-
 
         function updateArticleVisibility() {
             let visibleArticlesCount = 0; // 初始化可见文章数量为0
@@ -248,17 +273,67 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // 初始化时，激活所有过滤条件
-            document.querySelectorAll('.filter-option').forEach(option => {
-                option.classList.add('active');
-                activeFilters.add(option.dataset.category);
-            });
+            // 从URL中获取激活的分类参数和日期参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeCategories = urlParams.get('categories');
+            const dateParam = urlParams.get('date');
+
+            // 初始化激活的分类
+            if (activeCategories) {
+                activeCategories.split(',').forEach(category => {
+                    const option = document.querySelector(`.filter-option[data-category="${category}"]`);
+                    if (option) {
+                        option.classList.add('active');
+                        activeFilters.add(category);
+                    }
+                });
+            }
+
+            // 初始化日期
+            if (dateParam) {
+                document.getElementById('lastUpdated').innerText = new Date(dateParam).toLocaleString();
+            }
 
             // 默认显示所有文章并更新最新更新时间
             updateArticleVisibility();
             updateLastUpdatedTime();
         });
 
+        // 日期导航按钮的事件处理函数
+        document.getElementById('prevDay').addEventListener('click', () => {
+            changeDate(-1);
+        });
+
+        document.getElementById('nextDay').addEventListener('click', () => {
+            changeDate(1);
+        });
+
+        function changeDate(offset) {
+            // 获取当前显示的日期
+            const currentDate = new Date(document.getElementById('lastUpdated').innerText);
+            if (isNaN(currentDate)) return; // 如果当前日期无效，直接返回
+
+            // 计算新日期
+            const newDate = new Date(currentDate);
+            newDate.setDate(currentDate.getDate() + offset);
+
+            // 更新页面上的日期显示
+            document.getElementById('lastUpdated').innerText = newDate.toLocaleString();
+
+            // 更新文章的显示（假设你有一个函数可以根据日期获取文章）
+            updateArticlesForDate(newDate);
+        }
+
+        function updateArticlesForDate(date) {
+            // 获取当前激活的分类
+            const activeCategories = Array.from(activeFilters).join(',');
+
+            // 格式化日期为 YYYY-MM-DD
+            const formattedDate = date.toISOString().split('T')[0];
+
+            // 跳转到新页面，并传递激活的分类作为参数
+            window.location.href = `/articles?date=${formattedDate}&categories=${encodeURIComponent(activeCategories)}`;
+        }
     </script>     
 </body>
 </html>

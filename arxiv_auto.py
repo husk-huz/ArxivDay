@@ -6,6 +6,7 @@ import mysql.connector
 from mysql.connector import Error
 import schedule
 import time
+import trans
 
 class Article:
     """
@@ -28,8 +29,17 @@ class Article:
         self.summary = summary or ""
         self.title = title or ""
         self.updated = updated or ""
+        self.CN_title = ""
+        self.CN_summary = ""
 
     def gpt_CN_translate(self, model):
+        
+        self.CN_title = trans.english_translate(self.title)
+
+        self.CN_summary = trans.english_translate(self.summary)
+
+        return True
+        
         print("Running ChatGPT...")
         
         max_retries = 3  # 设置最大重试次数
@@ -170,7 +180,8 @@ def fetch_process_insert_articles(category, table_name, max_results):
     处理文章列表：翻译和插入数据库，避免重复。集成了文章获取、翻译和插入数据库的全过程，只对数据库中不存在的新文章进行处理。
     """
     config = Config()
-    model = ChatGPTModel(api_key=config.api_key())
+    # model = ChatGPTModel(api_key=config.api_key())
+    model = ""
     db = Database(config.db_config())
 
     print(f"（{datetime.now().date()}）：开始检索{category}文章...")
@@ -205,9 +216,11 @@ def fetch_process_insert_articles(category, table_name, max_results):
         num = 0
         for article in to_translate_articles:
             print(f"Job. {num+1}/{len(to_translate_articles)}:") 
+            import time
             if article.gpt_CN_translate(model):
                 num += 1
                 insert_articles.append(article)
+            time.sleep(0.5)
         insert_articles_to_database(insert_articles, table_name)  # 插入新文章到数据库
         print(f"成功更新{num}篇，失败{len(to_translate_articles)-num}篇。")
     else:
